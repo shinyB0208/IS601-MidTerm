@@ -1,18 +1,37 @@
+from unittest.mock import patch
 import pytest
-from app.plugins.multiply import MultiplyCommand
+from app.plugins.calculations.multiply import MultiplyCommand
+from app.calculation_history import CalculationHistory
+from app.logging_utility import LoggingUtility
 
-def test_app_multiply_command(capfd, monkeypatch, app_instance):
-    """Test multiplication."""
-    inputs = iter(['multiply 3 4', 'exit'])
-    monkeypatch.setattr('builtins.input', lambda _: next(inputs))
+@pytest.fixture
+def mock_history_instance(mocker):
+    # Mock the CalculationHistory's constructor and add_record method
+    mocker.patch.object(CalculationHistory, '__init__', return_value=None)
+    history_instance = CalculationHistory()
+    history_instance.add_record = mocker.MagicMock()
+    return history_instance
 
-    with pytest.raises(SystemExit):
-        app_instance.start()
+@pytest.fixture
+def multiply_command(mock_history_instance):
+    # Patch the CalculationHistory within MultiplyCommand to use the mocked instance
+    with patch('app.command.base_command.CalculationHistory', return_value=mock_history_instance):
+        return MultiplyCommand()
 
-    out, _ = capfd.readouterr()
-    assert "12" in out, "The multiply command did not output the expected product."
+def test_multiply_command_success(multiply_command, mocker):
+    # Mock LoggingUtility.info to verify it's called correctly
+    mock_info = mocker.patch.object(LoggingUtility, 'info')
 
-def test_add_command_value_error():
-    multiply_command = MultiplyCommand()
-    result = multiply_command.execute("a", "b")
-    assert result == "Error: All arguments must be numbers."
+    multiply_command.execute('2', '3')
+
+    mock_info.assert_called_once_with(6.0)
+    multiply_command.history_instance.add_record.assert_called_once()
+
+def test_multiply_command_invalid_input(multiply_command, mocker):
+    # Mock LoggingUtility.error to check for correct error handling
+    mock_error = mocker.patch.object(LoggingUtility, 'error')
+
+    multiply_command.execute('2', 'a')
+
+    mock_error.assert_called_once_with("Error: All arguments must be numbers.")
+    multiply_command.history_instance.add_record.assert_not_called()
