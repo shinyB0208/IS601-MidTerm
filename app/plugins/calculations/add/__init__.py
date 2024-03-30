@@ -1,8 +1,17 @@
-from app.command import Command
-class AddCommand(Command):
+# app/plugins/calculation/add.py
+from app.command.base_command import BaseCommand
+from app.logging_utility import LoggingUtility
+
+class AddCommand(BaseCommand):
+
     def execute(self, *args):
+        #"Easier to Ask for Forgiveness than Permission" (EAFP)
+        #Very few chances to get the value error
         try:
-            numbers = map(float, args)  # Convert all arguments to integers
-            return sum(numbers)
+            numbers = [float(arg) for arg in args]
+            result = sum(numbers)
+            operation = " + ".join(args) + f" = {result}"
+            self.history_instance.add_record(operation, result)
+            LoggingUtility.info(result)
         except ValueError:
-            return "Error: All arguments must be numbers."
+            LoggingUtility.error("Error: All arguments must be numbers.")
