@@ -1,5 +1,5 @@
 import pytest
-from app.plugins.add import AddCommand
+from app.plugins.calculations.add import AddCommand
 def test_app_add_command(capfd, monkeypatch, app_instance):
     """Test that the REPL correctly handles the 'add' command."""
     inputs = iter(['add 2 3', 'exit'])
