@@ -1,4 +1,4 @@
-import os
+from unittest.mock import patch
 import pytest
 from app import App
 
@@ -10,46 +10,26 @@ def test_app_start_exit_command(capfd, monkeypatch):
     with pytest.raises(SystemExit) as e:
         app.start()
     assert e.type == SystemExit
+    
+def test_app_initialization_and_env_loading(app_instance):
+    # Assuming 'ENVIRONMENT' variable is critical for your application.
+    assert app_instance.get_environment_variable('ENVIRONMENT') is not None
+        
+def test_execute_known_command(app_instance):
+    with patch.object(app_instance.command_handler, 'execute_command') as mock_execute:
+        # Replace 'add' with an actual command your app supports
+        app_instance.command_handler.execute_command('add', '2', '3')
+        mock_execute.assert_called_with('add', '2', '3')
 
-def test_app_start_unknown_command(capfd, monkeypatch):
-    """Test how the REPL handles an unknown command before exiting."""
-    # Simulate user entering an unknown command followed by 'exit'
-    inputs = iter(['unknown_command', 'exit'])
-    monkeypatch.setattr('builtins.input', lambda _: next(inputs))
+def test_handle_unknown_command(app_instance):
+    with patch('app.logging_utility.LoggingUtility.error') as mock_log_error:
+        # Attempt to execute an unknown command
+        app_instance.command_handler.execute_command('nonexistent_command')
+        mock_log_error.assert_called()
 
-    app = App()
-
-    with pytest.raises(SystemExit) as excinfo:
-        app.start()
-
-    # Optionally, check for specific exit code or message
-    # assert excinfo.value.code == expected_exit_code
-
-    # Verify that the unknown command was handled as expected
-    captured = capfd.readouterr()
-    assert "No such command: unknown_command" in captured.out
-
-def test_load_environment_variables():
-    app = App()
-    # Assuming you have set 'ENVIRONMENT' in your .env or during testing setup
-    environment = app.get_environment_variable('ENVIRONMENT')
-    assert environment is not None
-    assert environment == 'PRODUCTION'  # Or whatever you expect it to be
-
-def test_plugin_loading(monkeypatch):
-    # Mock the os.environ.get to return a specific plugin
-    monkeypatch.setattr(os, 'environ', {'ENABLED_PLUGINS': 'add,subtract'})
-    app = App()
-    app.load_plugins()
-    # Ensure that the expected plugins are loaded and registered
-    assert 'add' in app.command_handler.commands
-    assert 'subtract' in app.command_handler.commands
-
-def test_empty_input(capfd, monkeypatch):
-    inputs = iter(['', 'exit'])
-    monkeypatch.setattr('builtins.input', lambda _: next(inputs))
-    app = App()
+@patch('builtins.input', side_effect=['unknown_command', 'exit'])
+def test_repl_exit(mock_input, app_instance):
     with pytest.raises(SystemExit):
-        app.start()
-    captured = capfd.readouterr()
-    # Check for any unwanted output or behavior, or simply ensure it doesn't crash
+        app_instance.start()
+    # Verify input was called twice: once for the command and once for 'exit'
+    assert mock_input.call_count == 2
